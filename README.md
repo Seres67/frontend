@@ -22,6 +22,7 @@ This will be a TCP server receiving information to display on screen, so I can e
 Here's the protocol:
 
 | Action Name           | First Byte | Second Byte       | Third Byte         | Fourth Byte       | Fifth Byte         |
+|-----------------------|------------|-------------------|--------------------|-------------------|--------------------|
 | add player/camera     | 0x01       | X first byte      | X second byte      | Y first byte      | Y second byte      |
 | remove player/camera  | 0x02       |                   |                    |                   |                    |
 | move player/camera    | 0x03       | DeltaX first byte | DeltaX second byte | DeltaY first byte | DeltaY second byte |
