@@ -15,6 +15,17 @@
 linked_list_t *event_queue = NULL;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
+#pragma pack(push, 1)
+
+typedef struct data_s
+{
+    char command;
+    short arg1;
+    short arg2;
+} m_data_t;
+
+#pragma pack(pop)
+
 void parse()
 {
     // 1 ADD PLAYER (X, Y)
@@ -31,9 +42,10 @@ void *frontend_func(void *args)
 {
     while (1) {
         pthread_mutex_lock(&mutex);
-        if (event_queue && event_queue->data) {
-            char *buffer = linked_list_pop(event_queue);
-            printf("frontend received: %s\n", buffer);
+        if (event_queue->next != NULL) {
+            m_data_t *received = linked_list_pop(event_queue);
+            printf("frontend received: %d %d %d\n", received->command,
+                   received->arg1, received->arg2);
         }
         pthread_mutex_unlock(&mutex);
     }
@@ -82,23 +94,26 @@ void *thread_func(void *args)
     }
     int client_socket = setup_socket(server_socket, 12948);
     while (1) {
-        char buffer[1024] = {0};
-        ssize_t r = read(client_socket, buffer, 1024 - 1);
+        char buffer[6] = {0};
+        ssize_t r = read(client_socket, buffer, 6);
         if (r == 0)
             break;
+        buffer[5] = 0;
+        printf("=> buffer %d %d %d %d %d %d\n", buffer[0], buffer[1], buffer[2],
+               buffer[3], buffer[4], buffer[5]);
+        short arg1 = (buffer[1] << 8) + buffer[2];
+        short arg2 = (buffer[3] << 8) + buffer[4];
+        m_data_t received = {.command = buffer[0], .arg1 = arg1, .arg2 = arg2};
         pthread_mutex_lock(&mutex);
-        if (event_queue == NULL)
-            event_queue = linked_list_new(strdup(buffer));
-        else
-            linked_list_push(event_queue, strdup(buffer));
+        linked_list_push(event_queue, &received);
         pthread_mutex_unlock(&mutex);
-        printf("read: %s\n", buffer);
     }
     return (void *)1;
 }
 
 int main(int ac, char **av)
 {
+    event_queue = linked_list_new(NULL);
     pthread_t server_thread, frontend_thread;
     pthread_create(&server_thread, NULL, thread_func, NULL);
     pthread_create(&frontend_thread, NULL, frontend_func, NULL);
