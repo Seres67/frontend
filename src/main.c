@@ -1,4 +1,12 @@
 #include "linked_list.h"
+#include <allegro5/color.h>
+#include <allegro5/display.h>
+#include <allegro5/drawing.h>
+#include <allegro5/events.h>
+#include <allegro5/keyboard.h>
+#include <allegro5/keycodes.h>
+#include <allegro5/mouse.h>
+#include <allegro5/timer.h>
 #include <asm-generic/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -26,7 +34,7 @@ typedef struct data_s
 
 #pragma pack(pop)
 
-void parse()
+void parse_packet(m_data_t received)
 {
     // 1 ADD PLAYER (X, Y)
     // 2 REMOVE PLAYER
@@ -40,15 +48,65 @@ void parse()
 
 void *frontend_func(void *args)
 {
+    al_init();
+    al_install_keyboard();
+    al_install_mouse();
+    ALLEGRO_TIMER *timer = al_create_timer(1.0 / 60.0);
+    ALLEGRO_EVENT_QUEUE *events = al_create_event_queue();
+    ALLEGRO_DISPLAY *window = al_create_display(680, 420);
+    ALLEGRO_FONT *font = al_create_builtin_font();
+    al_register_event_source(events, al_get_keyboard_event_source());
+    al_register_event_source(events, al_get_mouse_event_source());
+    al_register_event_source(events, al_get_display_event_source(window));
+    al_register_event_source(events, al_get_timer_event_source(timer));
+
+    bool redraw = true;
+    bool nightmode = false;
+    m_data_t *received = NULL;
+    ALLEGRO_EVENT event;
+    al_start_timer(timer);
     while (1) {
         pthread_mutex_lock(&mutex);
         if (event_queue->next != NULL) {
-            m_data_t *received = linked_list_pop(event_queue);
+            received = linked_list_pop(event_queue);
             printf("frontend received: %d %d %d\n", received->command,
                    received->arg1, received->arg2);
         }
         pthread_mutex_unlock(&mutex);
+        al_wait_for_event(events, &event);
+        if (event.type == ALLEGRO_EVENT_TIMER)
+            redraw = true;
+        else if ((event.type == ALLEGRO_EVENT_KEY_DOWN &&
+                  event.keyboard.keycode == ALLEGRO_KEY_ESCAPE) ||
+                 (event.type == ALLEGRO_EVENT_DISPLAY_CLOSE))
+            break;
+        if (received && received->command == 49) {
+            nightmode = false;
+            redraw = true;
+        } else if (received && received->command == 50) {
+            nightmode = true;
+            redraw = true;
+        }
+        if (redraw && nightmode) {
+            al_clear_to_color(al_map_rgb(0, 0, 0));
+            al_draw_text(font, al_map_rgb(255, 255, 255), 0, 0, 0,
+                         "Hello world!");
+            al_flip_display();
+            redraw = false;
+            printf("drawing\n");
+        } else if (redraw) {
+            printf("drawing\n");
+            al_clear_to_color(al_map_rgb(255, 255, 255));
+            al_draw_text(font, al_map_rgb(0, 0, 0), 0, 0, 0, "Hello world!");
+            al_flip_display();
+            redraw = false;
+        }
     }
+    al_destroy_font(font);
+    al_destroy_display(window);
+    al_destroy_timer(timer);
+    al_destroy_event_queue(events);
+    return (void *)1;
 }
 
 int setup_socket(int s, int port)
