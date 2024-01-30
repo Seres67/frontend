@@ -93,9 +93,7 @@ void *frontend_func(void *args)
                          "Hello world!");
             al_flip_display();
             redraw = false;
-            printf("drawing\n");
         } else if (redraw) {
-            printf("drawing\n");
             al_clear_to_color(al_map_rgb(255, 255, 255));
             al_draw_text(font, al_map_rgb(0, 0, 0), 0, 0, 0, "Hello world!");
             al_flip_display();
@@ -152,11 +150,11 @@ void *thread_func(void *args)
     }
     int client_socket = setup_socket(server_socket, 12948);
     while (1) {
-        char buffer[6] = {0};
-        ssize_t r = read(client_socket, buffer, 6);
+        unsigned char buffer[9] = {0};
+        ssize_t r = read(client_socket, buffer, 9);
         if (r == 0)
             break;
-        buffer[5] = 0;
+        buffer[8] = 0;
         printf("=> buffer %d %d %d %d %d %d\n", buffer[0], buffer[1], buffer[2],
                buffer[3], buffer[4], buffer[5]);
         short arg1 = (buffer[1] << 8) + buffer[2];
